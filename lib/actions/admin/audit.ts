@@ -5,6 +5,7 @@ import { backend, combine, id, orEmpty } from "@/lib/api/server";
 import type {
   AlertStatus,
   ApiResult,
+  AuditChainCheck,
   AuditFilters,
   AuditLog,
   BlockScope,
@@ -92,4 +93,9 @@ export async function scanAlerts() {
 
 export async function closeAlert(alertId: string, status: AlertStatus, resolution: string) {
   return backend<SecurityAlert>(`/security-alerts/${id(alertId)}`, { method: "PUT", body: { status, resolution } });
+}
+
+/** Recalcula la cadena de hashes de la auditoría (detecta registros editados o borrados en la BD). */
+export async function verifyAuditChain() {
+  return backend<AuditChainCheck>("/audit-logs/verify");
 }

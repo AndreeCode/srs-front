@@ -142,7 +142,26 @@ export const RELATIONSHIPS = ["Madre", "Padre", "Abuelo(a)", "Tío(a)", "Hermano
 
 export const childName = (c: Pick<Child, "first_names" | "last_names">) => `${c.first_names} ${c.last_names}`;
 
-export type AuditAction = "INSERT" | "UPDATE" | "DELETE";
+export type AuditAction =
+  | "INSERT"
+  | "UPDATE"
+  | "DELETE"
+  | "LOGIN"
+  | "LOGIN_FAILED"
+  | "LOGOUT"
+  | "PASSWORD_CHANGED"
+  | "ACCOUNT_LOCKED";
+
+/** Resultado de GET /audit-logs/verify (cadena de hashes de la auditoría). */
+export type AuditChainCheck = {
+  ok: boolean;
+  checked: number;
+  unsealed: number;
+  last_seq: number | null;
+  last_hash: string | null;
+  broken_seq: number | null;
+  reason: string | null;
+};
 
 export type AuditLog = {
   id: string;
@@ -231,7 +250,36 @@ export type ManyDevicesAlert = AlertBase & {
   };
 };
 
-export type SecurityAlert = SharedDeviceAlert | ManyDevicesAlert;
+/** Muchas contraseñas incorrectas (o un bloqueo) contra una cuenta en la última hora. */
+export type BruteForceAccountAlert = AlertBase & {
+  kind: "brute_force_account";
+  detail: {
+    total: number;
+    locks: number;
+    username: string;
+    full_name: string;
+    user_blocked: boolean;
+    ips: string[];
+    window_minutes: number;
+    last_attempt_at: string;
+  };
+};
+
+/** Muchos logins fallidos desde una misma IP (probando varias cuentas). */
+export type BruteForceIpAlert = AlertBase & {
+  kind: "brute_force_ip";
+  detail: { total: number; ip: string; accounts: number; usernames: string[]; window_minutes: number; last_attempt_at: string };
+};
+
+/** La verificación de la cadena de hashes de audit_log encontró un registro alterado o faltante. */
+export type AuditChainAlert = AlertBase & {
+  kind: "audit_chain_broken";
+  detail: { total: number; broken_seq: number; reason: string; checked: number };
+};
+
+export type DeviceAlert = SharedDeviceAlert | ManyDevicesAlert;
+export type AuthAlert = BruteForceAccountAlert | BruteForceIpAlert | AuditChainAlert;
+export type SecurityAlert = DeviceAlert | AuthAlert;
 
 /* ───────────── Catálogo SISNAT y controles ───────────── */
 

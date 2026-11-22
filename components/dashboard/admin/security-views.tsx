@@ -1,10 +1,10 @@
 "use client";
 
-import { Ban, CheckCircle2, MonitorSmartphone, RefreshCw, ShieldAlert, ShieldCheck, UserX, Users } from "lucide-react";
+import { Ban, CheckCircle2, FileWarning, KeyRound, MonitorSmartphone, RefreshCw, ShieldAlert, ShieldCheck, UserX, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useBackendAction, useBackendQuery } from "@/hooks/use-backend";
 import { closeAlert, loadAlerts, scanAlerts, setDeviceTrusted, setUserBlocked } from "@/lib/actions/admin/audit";
-import type { AlertStatus, ApiResult, BlockScope, Device, SecurityAlert, User } from "@/lib/api/types";
+import type { AlertStatus, ApiResult, AuthAlert, BlockScope, Device, DeviceAlert, SecurityAlert, User } from "@/lib/api/types";
 import { buttonClass, secondaryButtonClass } from "@/lib/dashboard/cred";
 import { PageTitle, StatusBadge } from "@/components/dashboard/shared";
 import { labelClass, submitWith, textareaClass } from "@/components/dashboard/forms";
@@ -141,7 +141,8 @@ export function AlertsView() {
       <LoadState loading={loading && !data} error={error} onRetry={reload}>
         {items.length ? (
           <div className="grid gap-4">
-            {items.map((alert) => (
+            {items.map((alert) =>
+              alert.kind === "shared_device" || alert.kind === "many_devices" ? (
               <AlertCard
                 key={alert.id}
                 alert={alert}
@@ -157,7 +158,16 @@ export function AlertsView() {
                 }}
                 onClose={(next) => close(alert, next)}
               />
-            ))}
+              ) : (
+                <AuthAlertCard
+                  key={alert.id}
+                  alert={alert}
+                  users={users}
+                  onBlockUser={(u) => blockUser(alert, u)}
+                  onClose={(next) => close(alert, next)}
+                />
+              ),
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
@@ -173,6 +183,85 @@ export function AlertsView() {
   );
 }
 
+/** Alertas que no son de dispositivos: fuerza bruta y auditoría alterada. */
+function AuthAlertCard({
+  alert,
+  users,
+  onBlockUser,
+  onClose,
+}: {
+  alert: AuthAlert;
+  users: Map<string, User>;
+  onBlockUser: (user: { id: string; name: string }) => void;
+  onClose: (next: "resolved" | "dismissed") => void;
+}) {
+  const open = alert.status === "open";
+  const account = alert.kind === "brute_force_account" && alert.user_id ? users.get(alert.user_id) : undefined;
+  const Icon = alert.kind === "audit_chain_broken" ? FileWarning : KeyRound;
+  const title =
+    alert.kind === "brute_force_account"
+      ? `${alert.detail.total} contraseñas incorrectas contra ${alert.detail.full_name}`
+      : alert.kind === "brute_force_ip"
+        ? `${alert.detail.total} logins fallidos desde la IP ${alert.detail.ip}`
+        : `La auditoría fue alterada (registro ${alert.detail.broken_seq})`;
+  const detail =
+    alert.kind === "brute_force_account"
+      ? `@${alert.detail.username} · en ${alert.detail.window_minutes} min${alert.detail.locks ? " · la cuenta se bloqueó temporalmente" : ""} · desde ${alert.detail.ips.join(", ") || "IP desconocida"}`
+      : alert.kind === "brute_force_ip"
+        ? `Probó ${alert.detail.accounts} cuentas en ${alert.detail.window_minutes} min: ${alert.detail.usernames.slice(0, 8).join(", ")}${alert.detail.usernames.length > 8 ? "…" : ""}`
+        : `${alert.detail.reason}. Alguien con acceso directo a la base de datos editó o borró registros de auditoría.`;
+
+  return (
+    <section className="rounded-xl border border-border bg-card">
+      <header className="flex flex-wrap items-start gap-3 border-b border-border p-5">
+        <span
+          className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${open ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}
+        >
+          <Icon className="size-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-semibold">{title}</h2>
+          <p className="text-xs text-muted-foreground">
+            {detail} · detectada {formatDateTime(alert.created_at)}
+          </p>
+        </div>
+        <StatusBadge tone={open ? "danger" : alert.status === "resolved" ? "good" : "muted"}>
+          {open ? "Posible ataque" : alert.status === "resolved" ? "Resuelta" : "Descartada"}
+        </StatusBadge>
+      </header>
+      <footer className="flex flex-wrap items-center gap-2 p-4">
+        {open ? (
+          <>
+            {account && !account.blocked && (
+              <button className={secondaryButtonClass} onClick={() => onBlockUser({ id: account.id, name: account.full_name })}>
+                <UserX className="size-4" />
+                Bloquear la cuenta
+              </button>
+            )}
+            <span className="ml-auto flex gap-2">
+              <button className={secondaryButtonClass} onClick={() => onClose("resolved")}>
+                <CheckCircle2 className="size-4" />
+                Marcar resuelta
+              </button>
+              <button className={secondaryButtonClass} onClick={() => onClose("dismissed")}>
+                Descartar
+              </button>
+            </span>
+          </>
+        ) : (
+          <p className="text-sm">
+            <span className="text-muted-foreground">
+              {alert.status === "resolved" ? "Resuelta" : "Descartada"} por {users.get(alert.resolved_by ?? "")?.full_name ?? "—"} el{" "}
+              {formatDateTime(alert.resolved_at)}:
+            </span>{" "}
+            {alert.resolution}
+          </p>
+        )}
+      </footer>
+    </section>
+  );
+}
+
 function AlertCard({
   alert,
   users,
@@ -183,7 +272,7 @@ function AlertCard({
   onUnblockDevice,
   onClose,
 }: {
-  alert: SecurityAlert;
+  alert: DeviceAlert;
   users: Map<string, User>;
   devices: Map<string, Device>;
   onBlockUser: (user: { id: string; name: string }) => void;

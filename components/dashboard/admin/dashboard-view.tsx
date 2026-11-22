@@ -19,7 +19,7 @@ import { secondaryButtonClass, type Tone } from "@/lib/dashboard/cred";
 import { addDays, ageDays, formatAge, formatDate, todayISO } from "@/lib/sisnat/dates";
 import { PageTitle, StatusBadge, toneFor } from "@/components/dashboard/shared";
 import { LoadState } from "@/components/dashboard/admin/common";
-import { tableLabels } from "@/components/dashboard/admin/audit-labels";
+import { actionLabels, tableLabels } from "@/components/dashboard/admin/audit-labels";
 import type { Nav } from "@/components/dashboard/views/packages-view";
 
 type Data = NonNullable<ReturnType<typeof useDashboard>["data"]>;
@@ -272,7 +272,7 @@ export function AdminDashboardView({ nav }: { nav: Nav }) {
                     <ListRow
                       key={log.id}
                       onClick={() => nav.go({ name: "audit" })}
-                      title={`${{ INSERT: "Creó", UPDATE: "Editó", DELETE: "Eliminó" }[log.action]} en ${tableLabels[log.affected_table ?? ""] ?? log.affected_table}`}
+                      title={`${actionLabels[log.action]?.label ?? log.action} en ${tableLabels[log.affected_table ?? ""] ?? log.affected_table}`}
                       detail={log.user_id ? (userById.get(log.user_id)?.full_name ?? "Usuario") : "Sistema"}
                       side={<span className="text-xs text-muted-foreground">{formatDate(log.created_at)}</span>}
                     />

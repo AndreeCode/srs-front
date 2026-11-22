@@ -26,6 +26,11 @@ export const actionLabels: Record<AuditAction, { label: string; tone: Tone }> = 
   INSERT: { label: "Creó", tone: "good" },
   UPDATE: { label: "Editó", tone: "default" },
   DELETE: { label: "Eliminó", tone: "danger" },
+  LOGIN: { label: "Inició sesión", tone: "good" },
+  LOGIN_FAILED: { label: "Login fallido", tone: "warn" },
+  LOGOUT: { label: "Cerró sesión", tone: "default" },
+  PASSWORD_CHANGED: { label: "Cambió contraseña", tone: "default" },
+  ACCOUNT_LOCKED: { label: "Cuenta bloqueada", tone: "danger" },
 };
 
 export const revokedReasonLabels: Record<string, string> = {

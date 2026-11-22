@@ -4,13 +4,14 @@ import { ChevronLeft, ChevronRight, Eye, LogOut, ShieldBan, ShieldCheck } from "
 import { useMemo, useState } from "react";
 import { useBackendAction, useBackendQuery } from "@/hooks/use-backend";
 import {
+  verifyAuditChain,
   loadAuditLogs,
   loadAuditUsers,
   loadSessionsPage,
   revokeSession,
   setDeviceTrusted,
 } from "@/lib/actions/admin/audit";
-import type { AuditAction, AuditFilters, AuditLog, Device, User, UserSession } from "@/lib/api/types";
+import type { AuditAction, AuditChainCheck, AuditFilters, AuditLog, Device, User, UserSession } from "@/lib/api/types";
 import { inputClass, secondaryButtonClass } from "@/lib/dashboard/cred";
 import { EmptyRow, FilterBar, PageTitle, PersonCell, ResetButton, StatusBadge, Table, Td, Tr } from "@/components/dashboard/shared";
 import { LoadState, Pagination, usePage } from "@/components/dashboard/admin/common";
@@ -75,6 +76,7 @@ export function AuditLogView() {
         kicker="Auditoría"
         title="Registro de cambios"
         subtitle="Cada creación, edición o eliminación en el sistema: quién, cuándo, desde dónde y qué cambió."
+        action={<VerifyChainButton />}
       />
       <FilterBar>
         <UserFilter users={people.data ?? []} value={filters.user_id ?? ""} onChange={(v) => change({ user_id: v || undefined })} />
@@ -477,5 +479,33 @@ export function DevicesView() {
         />
       )}
     </>
+  );
+}
+
+/** La auditoría es de solo escritura y está encadenada con HMAC-SHA256: este botón recorre la cadena. */
+function VerifyChainButton() {
+  const [state, setState] = useState<{ loading: boolean; result?: AuditChainCheck; error?: string }>({ loading: false });
+
+  async function verify() {
+    setState({ loading: true });
+    const res = await verifyAuditChain();
+    setState(res.ok ? { loading: false, result: res.data } : { loading: false, error: res.error });
+  }
+
+  return (
+    <div className="grid justify-items-end gap-1.5">
+      <button className={secondaryButtonClass} onClick={verify} disabled={state.loading}>
+        <ShieldCheck className="size-4" />
+        {state.loading ? "Verificando..." : "Verificar integridad"}
+      </button>
+      {state.result && (
+        <p className={`max-w-sm text-right text-xs ${state.result.ok ? "text-success" : "text-destructive"}`}>
+          {state.result.ok
+            ? `Íntegra: ${state.result.checked} registros sin alteraciones.`
+            : `Alterada en el registro ${state.result.broken_seq}: ${state.result.reason}. Se creó una alerta de seguridad.`}
+        </p>
+      )}
+      {state.error && <p className="text-xs text-destructive">{state.error}</p>}
+    </div>
   );
 }
