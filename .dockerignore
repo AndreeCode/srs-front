@@ -12,4 +12,3 @@ next-env.d.ts
 *.docx
 Dockerfile
 .dockerignore
-s
