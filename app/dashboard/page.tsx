@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { BACKEND_URL, type BackendUser, type SessionRole } from "@/lib/backend";
+import { forwardedHeaders } from "@/lib/api/forwarded";
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
 
 async function loadSession() {
@@ -9,7 +10,7 @@ async function loadSession() {
   if (!token) return null;
 
   const meRes = await fetch(`${BACKEND_URL}/api/auth/me`, {
-    headers: { Cookie: `access_token=${token}` },
+    headers: { Cookie: `access_token=${token}`, ...(await forwardedHeaders()) },
     cache: "no-store",
   });
   if (!meRes.ok) return null;

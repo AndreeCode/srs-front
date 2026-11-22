@@ -1,6 +1,7 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
+import { forwardedHeaders } from "@/lib/api/forwarded";
 import {
   BACKEND_URL,
   parseSetCookie,
@@ -28,14 +29,13 @@ type LoginResult = { ok: true; user: BackendUser; role: SessionRole } | { ok: fa
  */
 export async function loginAction(username: string, password: string): Promise<LoginResult> {
   const cookieStore = await cookies();
-  const userAgent = (await headers()).get("user-agent") ?? "";
   const deviceToken = cookieStore.get("device_token")?.value;
 
   const loginRes = await fetch(`${BACKEND_URL}/api/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "User-Agent": userAgent,
+      ...(await forwardedHeaders()),
       ...(deviceToken ? { Cookie: `device_token=${deviceToken}` } : {}),
     },
     body: JSON.stringify({ username, password }),
@@ -75,10 +75,9 @@ type RegisterResult =
  * (SQL Server); solo guarda al padre, su cuenta y el vínculo. Si se crea, inicia sesión de una vez.
  */
 export async function registerAction(input: RegisterInput): Promise<RegisterResult> {
-  const userAgent = (await headers()).get("user-agent") ?? "";
   const res = await fetch(`${BACKEND_URL}/api/auth/register`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "User-Agent": userAgent },
+    headers: { "Content-Type": "application/json", ...(await forwardedHeaders()) },
     body: JSON.stringify(input),
     cache: "no-store",
   }).catch(() => null);
@@ -96,11 +95,11 @@ export async function registerAction(input: RegisterInput): Promise<RegisterResu
 export async function logoutAction() {
   const cookieStore = await cookies();
   const token = cookieStore.get("access_token")?.value;
-  const userAgent = (await headers()).get("user-agent") ?? "";
+  const client = await forwardedHeaders();
 
   await fetch(`${BACKEND_URL}/api/auth/logout`, {
     method: "POST",
-    headers: token ? { Cookie: `access_token=${token}`, "User-Agent": userAgent } : { "User-Agent": userAgent },
+    headers: token ? { Cookie: `access_token=${token}`, ...client } : client,
     cache: "no-store",
   }).catch(() => null);
 

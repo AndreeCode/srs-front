@@ -1,10 +1,11 @@
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { BACKEND_URL } from "@/lib/backend";
+import { forwardedHeaders } from "@/lib/api/forwarded";
 import type { ApiResult } from "@/lib/api/types";
 
 /**
- * Llamada al backend desde una Server Action: reenvía la cookie de sesión y el navegador
- * del usuario (el backend los usa para la sesión y la auditoría). Solo importar desde
+ * Llamada al backend desde una Server Action: reenvía la cookie de sesión, el navegador
+ * y la IP del usuario (el backend los usa para la sesión y la auditoría). Solo importar desde
  * archivos "use server": el token nunca llega al navegador.
  * `body` va como JSON; `form` como multipart (subida de archivos).
  */
@@ -16,12 +17,11 @@ export async function backend<T>(
   const token = cookieStore.get("access_token")?.value;
   if (!token) return { ok: false, status: 401, error: "Tu sesión terminó, vuelve a ingresar" };
 
-  const userAgent = (await headers()).get("user-agent") ?? "";
   const res = await fetch(`${BACKEND_URL}/api${path}`, {
     method: init.method ?? "GET",
     headers: {
       Cookie: `access_token=${token}`,
-      "User-Agent": userAgent,
+      ...(await forwardedHeaders()),
       ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
     },
     body: init.form ?? (init.body !== undefined ? JSON.stringify(init.body) : undefined),

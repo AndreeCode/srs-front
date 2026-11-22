@@ -1,4 +1,5 @@
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
+import { forwardedHeaders } from "@/lib/api/forwarded";
 import { BACKEND_URL } from "@/lib/backend";
 
 /**
@@ -14,7 +15,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/files/claim-evi
   // El padre descarga por el portal (solo evidencias de sus propios reclamos).
   const base = cookieStore.get("session_role")?.value === "guardian" ? "portal/claim-evidences" : "claim-evidences";
   const res = await fetch(`${BACKEND_URL}/api/${base}/${encodeURIComponent(id)}/file`, {
-    headers: { Cookie: `access_token=${token}`, "User-Agent": (await headers()).get("user-agent") ?? "" },
+    headers: { Cookie: `access_token=${token}`, ...(await forwardedHeaders()) },
     cache: "no-store",
   }).catch(() => null);
 
