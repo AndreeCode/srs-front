@@ -6,16 +6,21 @@
  * El estado vive en el cliente (hooks/use-sisnat.tsx) mientras no exista la API real.
  */
 
-import { cookies } from "next/headers";
-import type { SessionRole } from "@/lib/backend";
+import { backend } from "@/lib/api/server";
+import type { BackendUser, SessionRole } from "@/lib/backend";
 import type { EstadoReclamo } from "@/lib/sisnat/types";
 
 type Result = { ok: true } | { ok: false; error: string };
 
 const delay = () => new Promise((r) => setTimeout(r, 250));
 
+/**
+ * El rol sale del backend (/auth/me), nunca de la cookie `session_role`: esa cookie solo sirve
+ * para elegir la pantalla y el usuario puede editarla desde el navegador (OWASP A08).
+ */
 async function requireRole(allowed: SessionRole[]): Promise<string | null> {
-  const role = (await cookies()).get("session_role")?.value as SessionRole | undefined;
+  const me = await backend<BackendUser>("/auth/me");
+  const role = me.ok ? me.data.role : undefined;
   if (!role) return "Sesión no válida";
   if (!allowed.includes(role)) return "No tiene permisos para esta acción";
   return null;
