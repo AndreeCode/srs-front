@@ -19,8 +19,9 @@ export async function mfaStatusAction() {
   return backend<MfaStatus>("/auth/mfa");
 }
 
-export async function mfaSetupAction() {
-  return backend<MfaSetup>("/auth/mfa/setup", { method: "POST", body: {} });
+/** Configurar el MFA y cerrar sesiones piden otra vez la contraseña (ASVS V7.5.1 / V7.5.2). */
+export async function mfaSetupAction(password: string) {
+  return backend<MfaSetup>("/auth/mfa/setup", { method: "POST", body: { password } });
 }
 
 export async function mfaEnableAction(code: string) {
@@ -36,8 +37,12 @@ export async function mySessionsAction() {
   return backend<MySession[]>("/auth/sessions");
 }
 
-export async function revokeMySessionAction(sessionId: string) {
-  return backend<null>(`/auth/sessions/${id(sessionId)}`, { method: "DELETE" });
+export async function revokeMySessionAction(sessionId: string, password: string) {
+  return backend<null>(`/auth/sessions/${id(sessionId)}/revoke`, { method: "POST", body: { password } });
+}
+
+export async function revokeMyOtherSessionsAction(password: string) {
+  return backend<null>("/auth/sessions/revoke-others", { method: "POST", body: { password } });
 }
 
 /** Admin: el usuario perdió el celular y debe volver a configurar la verificación. */

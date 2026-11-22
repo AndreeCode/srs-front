@@ -9,6 +9,7 @@ import {
   mfaSetupAction,
   mfaStatusAction,
   mySessionsAction,
+  revokeMyOtherSessionsAction,
   revokeMySessionAction,
   type MfaSetup,
 } from "@/lib/actions/account";
@@ -42,11 +43,12 @@ export function MfaModal({ onClose, forced = false }: { onClose: () => void; for
     }
   }
 
-  const start = () =>
+  const start = submitWith((form) =>
     wrap(async () => {
-      const data = await run(mfaSetupAction(), "Clave generada: agrégala en tu app");
+      const data = await run(mfaSetupAction(String(form.get("password") ?? "")), "Clave generada: agrégala en tu app");
       if (data) setSetup(data);
-    });
+    }),
+  );
 
   const confirm = submitWith((form) =>
     wrap(async () => {
@@ -123,33 +125,61 @@ export function MfaModal({ onClose, forced = false }: { onClose: () => void; for
             </button>
           </form>
         ) : (
-          <div className="grid gap-4 text-sm">
+          <form onSubmit={start} className="grid gap-4 text-sm">
             <p className="text-muted-foreground">
               Además de la contraseña, al ingresar se pedirá un código de 6 dígitos de una app autenticadora en tu celular.
             </p>
-            <button className={buttonClass} onClick={start} disabled={pending}>
+            <TextField label="Confirma tu contraseña" name="password" type="password" autoComplete="current-password" required />
+            <button className={buttonClass} disabled={pending}>
               <KeyRound className="size-4" />
               Configurar verificación en dos pasos
             </button>
-          </div>
+          </form>
         )}
       </LoadState>
     </Modal>
   );
 }
 
-/** Sesiones abiertas de la propia cuenta (ASVS V7.4): cerrar las que no reconozcas. */
+/**
+ * Sesiones abiertas de la propia cuenta (ASVS V7.4 / V7.5.2): cerrar una o todas las demás
+ * confirmando la contraseña, así quien encuentre la sesión abierta no echa al dueño.
+ */
 export function SessionsModal({ onClose }: { onClose: () => void }) {
   const sessions = useBackendQuery("my-sessions", mySessionsAction);
   const run = useBackendAction();
+  const [password, setPassword] = useState("");
+  const others = sessions.data?.some((s) => !s.current) ?? false;
 
-  async function close(id: string) {
-    if (await run(revokeMySessionAction(id))) sessions.reload();
+  async function close(id: string | null) {
+    const action = id ? revokeMySessionAction(id, password) : revokeMyOtherSessionsAction(password);
+    if (await run(action)) {
+      setPassword("");
+      sessions.reload();
+    }
   }
 
   return (
     <Modal title="Mis sesiones" subtitle="Se cierran solas tras 30 minutos sin actividad. Cierra las que no reconozcas." onClose={onClose}>
       <LoadState loading={!sessions.data && !sessions.error} error={sessions.error} onRetry={sessions.reload}>
+        {others && (
+          <div className="mb-3 flex flex-wrap items-end gap-2">
+            <label className="grid flex-1 gap-1 text-xs text-muted-foreground">
+              Contraseña para cerrar sesiones
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground"
+              />
+            </label>
+            <button className={secondaryButtonClass} disabled={!password} onClick={() => close(null)}>
+              <LogOut className="size-4" />
+              Cerrar todas las demás
+            </button>
+          </div>
+        )}
         <ul className="grid gap-2">
           {sessions.data?.map((s) => (
             <li key={s.id} className="flex items-center gap-3 rounded-lg border border-border p-3 text-sm">
@@ -161,7 +191,7 @@ export function SessionsModal({ onClose }: { onClose: () => void }) {
                 </p>
               </div>
               {!s.current && (
-                <button className={secondaryButtonClass} onClick={() => close(s.id)}>
+                <button className={secondaryButtonClass} disabled={!password} onClick={() => close(s.id)}>
                   <LogOut className="size-4" />
                   Cerrar
                 </button>

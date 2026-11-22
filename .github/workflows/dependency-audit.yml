@@ -27,3 +27,20 @@ jobs:
         # GHSA-mrhx-c7xc-m3w5: zod@3 solo lo usa la CLI de shadcn (devDependency, nunca llega al
         # bundle de la app). Quitar este --ignore cuando shadcn actualice su dependencia.
         run: bun audit --audit-level=high --ignore=GHSA-mrhx-c7xc-m3w5
+
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - name: Instalar exactamente lo del lockfile
+        run: bun install --frozen-lockfile
+      - name: Inventario de componentes (SBOM CycloneDX, ASVS V15.1.2)
+        run: npx --yes @cyclonedx/cyclonedx-npm@6.0.1 --omit dev --ignore-npm-errors --output-format JSON --output-file sbom.cdx.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: sbom.cdx.json
+          retention-days: 90
