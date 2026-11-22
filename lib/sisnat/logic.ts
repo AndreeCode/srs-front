@@ -312,8 +312,19 @@ export function opcionesFiltro(alcance: Alcance, microRed = "") {
   return { microRedes, establecimientos };
 }
 
+/**
+ * Excel/LibreOffice ejecutan como fórmula una celda que empieza con = + - @ (o tab/CR).
+ * Un nombre como `=HYPERLINK(...)` exfiltraría datos al abrir el export: se antepone `'`
+ * para que se muestre como texto (OWASP "CSV Injection"). Los números no se tocan.
+ */
+const FORMULA_START = /^[=+\-@\t\r]/;
+
 export function toCsv(headers: string[], rows: (string | number | null)[][]) {
-  const cell = (v: string | number | null) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const cell = (v: string | number | null) => {
+    const text = typeof v === "number" ? String(v) : String(v ?? "");
+    const safe = typeof v === "string" && FORMULA_START.test(text) ? `'${text}` : text;
+    return `"${safe.replace(/"/g, '""')}"`;
+  };
   return [headers, ...rows].map((r) => r.map(cell).join(",")).join("\n");
 }
 

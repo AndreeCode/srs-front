@@ -54,7 +54,7 @@ export function ClaimDetailView({ claimId }: { claimId: number }) {
           <div className="flex flex-wrap gap-2">
             {r.evidencias.length ? (
               r.evidencias.map((e) =>
-                e.url ? (
+                e.url?.startsWith("/") && !e.url.startsWith("//") ? (
                   <a key={e.id} href={e.url} target="_blank" rel="noreferrer" className={`${linkButtonClass} inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2`}>
                     <FileText className="size-4" />
                     {e.nombre}
