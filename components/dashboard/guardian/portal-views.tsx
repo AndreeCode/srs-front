@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FileText, MessageSquareWarning, Paperclip, Plus, Send, Upload } from "lucide-react";
+import { Database, Download, FileText, MessageSquareWarning, Paperclip, Plus, Send, Upload } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useBackendAction, useBackendQuery } from "@/hooks/use-backend";
 import { useSisnat } from "@/hooks/use-sisnat";
@@ -18,6 +18,7 @@ import {
   type ClaimStatus,
   type HealthFacility,
   type PortalChild,
+  type PortalControl,
   type PortalOverview,
 } from "@/lib/api/types";
 import { buttonClass, secondaryButtonClass, type Tone } from "@/lib/dashboard/cred";
@@ -57,6 +58,12 @@ export function PortalChildrenView({ nav }: { nav: Nav }) {
         subtitle={data ? `Hola, ${data.guardian.full_name}. Elige a tu hijo para ver sus controles.` : undefined}
       />
       <LoadState loading={loading && !data} error={error} onRetry={reload}>
+        {data?.his_error && (
+          <p role="alert" className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+            {data.his_error}. Los hijos registrados en HIS-MINSA no se muestran por ahora.
+          </p>
+        )}
+        {data && <HisNote kids={data.children.filter((c) => c.source === "his")} />}
         {data && (
           <GuardianChildren
             showGuardian={false}
@@ -80,17 +87,28 @@ export function PortalChildrenView({ nav }: { nav: Nav }) {
               pkg={data.packages.find((p) => p.id === row.service.package_id)}
               facilities={data.facilities}
               onClose={close}
-              onClaim={() => {
-                close();
-                setClaim({ childId: child.id, serviceId: row.service.id });
-              }}
+              onClaim={
+                child.source === "his"
+                  ? undefined
+                  : () => {
+                      close();
+                      setClaim({ childId: child.id, serviceId: row.service.id });
+                    }
+              }
             />
           )}
           footer={
-            <button className={secondaryButtonClass} onClick={() => setClaim({ childId: child.id })}>
-              <MessageSquareWarning className="size-4" />
-              Presentar un reclamo
-            </button>
+            child.source === "his" ? (
+              <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                <Database className="size-4" />
+                Datos de HIS-MINSA{child.facility_name ? ` · ${child.facility_name}` : ""}. Los reclamos se presentan en tu establecimiento.
+              </p>
+            ) : (
+              <button className={secondaryButtonClass} onClick={() => setClaim({ childId: child.id })}>
+                <MessageSquareWarning className="size-4" />
+                Presentar un reclamo
+              </button>
+            )
           }
         />
       )}
@@ -111,8 +129,8 @@ export function PortalChildrenView({ nav }: { nav: Nav }) {
   );
 }
 
-/** Detalle de una prestación, solo lectura: el padre ve qué se hizo, cuándo y dónde. */
-function ControlDetailModal({
+/** Detalle de una prestación, solo lectura: el padre (y el admin para los niños de HIS) ve qué se hizo, cuándo y dónde. */
+export function ControlDetailModal({
   row,
   child,
   pkg,
@@ -125,9 +143,11 @@ function ControlDetailModal({
   pkg?: CarePackage;
   facilities: HealthFacility[];
   onClose: () => void;
-  onClaim: () => void;
+  /** Sin `onClaim` (niños de HIS-MINSA) no se ofrece reclamar: el reclamo necesita al niño en SICNA. */
+  onClaim?: () => void;
 }) {
-  const { service, control, state } = row;
+  const { service, state } = row;
+  const control = row.control as PortalControl | undefined;
   const { label, icon: Icon, box, iconClass } = states[state];
   const facility = control?.health_facility_id ? facilities.find((f) => f.id === control.health_facility_id) : undefined;
 
@@ -148,7 +168,7 @@ function ControlDetailModal({
           </Item>
           <Item label="Fecha de atención">{formatDate(control?.completed_date)}</Item>
           <Item label="Próxima cita">{formatDate(control?.scheduled_date)}</Item>
-          <Item label="Establecimiento">{facility?.name ?? "—"}</Item>
+          <Item label="Establecimiento">{facility?.name ?? control?.facility_name ?? "—"}</Item>
           {control?.batch_number && <Item label="Lote">{control.batch_number}</Item>}
           {(control?.book_page || control?.book_record) && (
             <Item label="Libro de registro">
@@ -163,17 +183,20 @@ function ControlDetailModal({
         )}
         {!control && state !== "upcoming" && (
           <p className="rounded-lg bg-muted/50 p-3 text-muted-foreground">
-            Aún no hay atención registrada. Si tu hijo sí la recibió, puedes presentar un reclamo.
+            Aún no hay atención registrada.
+            {onClaim ? " Si tu hijo sí la recibió, puedes presentar un reclamo." : " Si tu hijo sí la recibió, avísalo en tu establecimiento."}
           </p>
         )}
         <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
           <button className={secondaryButtonClass} onClick={onClose}>
             Cerrar
           </button>
-          <button className={secondaryButtonClass} onClick={onClaim}>
-            <MessageSquareWarning className="size-4" />
-            Reclamar sobre esta prestación
-          </button>
+          {onClaim && (
+            <button className={secondaryButtonClass} onClick={onClaim}>
+              <MessageSquareWarning className="size-4" />
+              Reclamar sobre esta prestación
+            </button>
+          )}
         </div>
       </div>
     </Modal>
@@ -186,6 +209,20 @@ function Item({ label, children }: { label: string; children: React.ReactNode })
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd>{children}</dd>
     </div>
+  );
+}
+
+/** Aviso de qué hijos vienen de HIS-MINSA (SQL Server): se leen en vivo, no están copiados en SICNA. */
+function HisNote({ kids }: { kids: PortalChild[] }) {
+  if (!kids.length) return null;
+  return (
+    <p className="mb-4 flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+      <Database className="mt-0.5 size-4 shrink-0" />
+      <span>
+        {kids.map((k) => childName(k).trim()).join(", ")} {kids.length === 1 ? "viene" : "vienen"} de HIS-MINSA: sus atenciones se
+        consultan directamente en esa base y aparecen aquí cuando el establecimiento las digita.
+      </span>
+    </p>
   );
 }
 
@@ -208,7 +245,8 @@ function PortalClaimModal({
   const { notify } = useSisnat();
   const [pending, setPending] = useState(false);
   const [childId, setChildId] = useState(defaultChildId ?? "");
-  const child = portal.children.find((c) => c.id === childId);
+  const claimable = useMemo(() => portal.children.filter((c) => c.source !== "his"), [portal]);
+  const child = claimable.find((c) => c.id === childId);
 
   const services = useMemo(() => {
     if (!child) return [] as CareService[];
@@ -256,7 +294,7 @@ function PortalClaimModal({
           placeholder="Seleccionar"
           defaultValue={defaultChildId}
           onChange={setChildId}
-          options={portal.children.map((c) => ({ value: c.id, label: childName(c) }))}
+          options={claimable.map((c) => ({ value: c.id, label: childName(c) }))}
         />
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField
@@ -319,7 +357,7 @@ export function PortalClaimsView() {
         title="Mis reclamos"
         subtitle="Reclamos que presentaste sobre la atención de tus hijos y la respuesta del establecimiento."
         action={
-          <button className={buttonClass} onClick={() => setCreating(true)} disabled={!data?.overview.children.length}>
+          <button className={buttonClass} onClick={() => setCreating(true)} disabled={!data?.overview.children.some((c) => c.source !== "his")}>
             <Plus className="size-4" />
             Nuevo reclamo
           </button>

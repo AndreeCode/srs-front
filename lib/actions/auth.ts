@@ -7,6 +7,7 @@ import {
   type BackendUser,
   type SessionRole,
 } from "@/lib/backend";
+import type { LinkedChild, RegisterInput } from "@/lib/api/types";
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -63,6 +64,33 @@ export async function loginAction(username: string, password: string): Promise<L
   if (newDeviceToken) cookieStore.set("device_token", newDeviceToken, DEVICE_COOKIE_OPTIONS);
 
   return { ok: true, user, role };
+}
+
+type RegisterResult =
+  | { ok: true; child: LinkedChild | null; role: SessionRole | null; loginError: string | null }
+  | { ok: false; error: string };
+
+/**
+ * Registro público de padres: el backend busca al niño en Postgres y, si no está, en SISNAT
+ * (SQL Server); solo guarda al padre, su cuenta y el vínculo. Si se crea, inicia sesión de una vez.
+ */
+export async function registerAction(input: RegisterInput): Promise<RegisterResult> {
+  const userAgent = (await headers()).get("user-agent") ?? "";
+  const res = await fetch(`${BACKEND_URL}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "User-Agent": userAgent },
+    body: JSON.stringify(input),
+    cache: "no-store",
+  }).catch(() => null);
+  if (!res) return { ok: false, error: "No se pudo conectar con el servidor" };
+  const body = await res.json().catch(() => null);
+  if (!res.ok) return { ok: false, error: body?.msg ?? `Error ${res.status} del servidor` };
+
+  const child = (body?.data?.child ?? null) as LinkedChild | null;
+  const login = await loginAction(input.dni, input.password);
+  return login.ok
+    ? { ok: true, child, role: login.role, loginError: null }
+    : { ok: true, child, role: null, loginError: login.error };
 }
 
 export async function logoutAction() {

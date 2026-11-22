@@ -67,6 +67,9 @@ export function LoginForm() {
             {notice}
           </p>
         )}
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          ¿Eres madre, padre o apoderado y no tienes cuenta? Pídela en tu establecimiento de salud.
+        </p>
       </div>
     </section>
   );

@@ -23,6 +23,7 @@ import {
   type CareService,
   type Child,
   type ChildControl,
+  type ChildLike,
   type Guardian,
 } from "@/lib/api/types";
 import { secondaryButtonClass } from "@/lib/dashboard/cred";
@@ -38,7 +39,7 @@ type Mode = "guardian" | "child";
 export type ServiceRow = { service: CareService; control?: ChildControl; state: ServiceState };
 type PackageRow = { pkg: CarePackage; phase: "current" | "past" | "future"; services: ServiceRow[]; done: number; due: number };
 export type Followup = {
-  child: Child;
+  child: ChildLike;
   age: number;
   packages: PackageRow[];
   counts: Record<ServiceState, number>;
@@ -59,7 +60,7 @@ function useTracking() {
 
 /** Paquetes del niño con el estado de cada prestación (cumplida, vencida, falta o próxima). */
 export function followup(
-  child: Child,
+  child: ChildLike,
   data: { controls: ChildControl[]; packages: CarePackage[]; services: CareService[] },
 ): Followup {
   const age = ageDays(child.birth_date);
@@ -303,7 +304,7 @@ export function GuardianChildren({
   showGuardian = true,
 }: {
   guardian: Guardian;
-  kids: { child: Child; relationship: string }[];
+  kids: { child: ChildLike; relationship: string }[];
   summaries: Map<string, Followup>;
   onOpen: (childId: string) => void;
   showGuardian?: boolean;
@@ -470,7 +471,7 @@ function TimelineItem({
   onPick,
 }: {
   row: PackageRow;
-  child: Child;
+  child: ChildLike;
   first: boolean;
   last: boolean;
   onPick: (row: ServiceRow) => void;
@@ -516,7 +517,7 @@ function TimelineItem({
   );
 }
 
-function ServiceChip({ item, child, onClick }: { item: ServiceRow; child: Child; onClick: () => void }) {
+function ServiceChip({ item, child, onClick }: { item: ServiceRow; child: ChildLike; onClick: () => void }) {
   const { label, icon: Icon, box, iconClass } = states[item.state];
   const { service, control } = item;
   const when =

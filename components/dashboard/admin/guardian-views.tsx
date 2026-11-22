@@ -12,6 +12,7 @@ import { RowActions } from "@/components/dashboard/row-actions";
 import { TextField, submitWith } from "@/components/dashboard/forms";
 import { LoadState, Pagination, SearchField, SelectField, matches, optional, required, usePage } from "@/components/dashboard/admin/common";
 import { ChildFormModal } from "@/components/dashboard/admin/child-form-modal";
+import { GuardianHisSection } from "@/components/dashboard/admin/his-children";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Modal } from "@/components/ui/modal";
 import type { Nav } from "@/components/dashboard/views/packages-view";
@@ -451,6 +452,8 @@ export function GuardianDetailView({ nav, guardianId }: { nav: Nav; guardianId: 
               )}
             </Table>
             <Pagination pager={pager} label="hijos" />
+
+            <GuardianHisSection guardian={guardian} />
 
             {editing && (
               <GuardianFormModal

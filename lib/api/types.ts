@@ -332,15 +332,98 @@ export const claimStatusLabels: Record<ClaimStatus, string> = {
 
 /* ───────────── Portal familiar (padre con sesión) ───────────── */
 
-export type PortalChild = Child & { relationship: string };
+/** Origen de un niño: "sicna" = Postgres, "his" = HIS-MINSA (SQL Server), consultado en vivo. */
+export type ChildSource = "sicna" | "his";
+
+/** Un niño como lo usan las vistas de seguimiento: los de HIS-MINSA no tienen establecimiento de SICNA. */
+export type ChildLike = Omit<Child, "health_facility_id"> & { health_facility_id: string | null };
+
+export type PortalChild = ChildLike & {
+  relationship: string;
+  source: ChildSource;
+  /** Solo HIS: nombre del establecimiento tal como está en SQL Server. */
+  facility_name?: string | null;
+  micro_red?: string | null;
+  /** Solo HIS: "DNI" o "CNV" y cuántas atenciones tiene registradas. */
+  document_type?: string;
+  attentions?: number;
+};
+
+export type PortalControl = ChildControl & { source: ChildSource; facility_name?: string | null };
 
 export type PortalOverview = {
   guardian: Guardian;
   children: PortalChild[];
-  controls: ChildControl[];
+  controls: PortalControl[];
   packages: CarePackage[];
   services: CareService[];
   facilities: HealthFacility[];
+  /** Mensaje si SQL Server (HIS-MINSA) no respondió; los hijos de Postgres se muestran igual. */
+  his_error: string | null;
+};
+
+/* ───────────── HIS-MINSA (SQL Server, solo lectura) ───────────── */
+
+/** Niño de HIS-MINSA vinculado a un padre (tabla guardian_his_children de Postgres). */
+export type GuardianHisChild = {
+  guardian_id: string;
+  document_number: string;
+  birth_date: string;
+  relationship: string;
+  child_name: string | null;
+  linked_by: string | null;
+  created_at: string | null;
+};
+
+/** Una fila de NOMINAL_TRAMA_NUEVO tal cual, para mostrar el detalle crudo. */
+export type HisAttention = {
+  attention_date: string;
+  code: string;
+  description: string | null;
+  dose: string | null;
+  lab_value: string | null;
+  batch: string | null;
+  page: string | null;
+  record: string | null;
+  weight: string | null;
+  height: string | null;
+  hemoglobin: string | null;
+  facility_name: string | null;
+};
+
+/** GET /his/children/{dni}: el niño, sus atenciones traducidas a prestaciones y con quién está vinculado. */
+export type HisLookup = {
+  child: PortalChild;
+  controls: PortalControl[];
+  attentions: HisAttention[];
+  links: GuardianHisChild[];
+};
+
+/** GET /his/guardians/{id}: los hijos HIS de un padre con sus controles. */
+export type GuardianHisFollowup = { children: PortalChild[]; controls: PortalControl[] };
+
+export type GuardianRelationship = "Madre" | "Padre" | "Apoderado";
+
+/** Niño encontrado al registrarse o al vincularlo desde el portal. */
+export type LinkedChild = {
+  source: ChildSource;
+  id: string;
+  padron_code: string;
+  full_name: string;
+  birth_date: string;
+  relationship: GuardianRelationship;
+  already_linked?: boolean;
+};
+
+export type RegisterInput = {
+  dni: string;
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+  password: string;
+  child_identifier: string;
+  child_birth_date: string;
+  relationship: GuardianRelationship;
 };
 
 export type PortalClaims = { claims: Claim[]; evidences: ClaimEvidence[] };

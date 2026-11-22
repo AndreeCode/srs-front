@@ -29,3 +29,4 @@ export async function createPortalClaim(input: {
 export async function uploadPortalEvidence(form: FormData) {
   return backend<ClaimEvidence>("/portal/claim-evidences", { method: "POST", form });
 }
+
