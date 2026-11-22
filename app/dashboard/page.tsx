@@ -12,8 +12,9 @@ async function loadSession() {
   const meRes = await fetch(`${BACKEND_URL}/api/auth/me`, {
     headers: { Cookie: `access_token=${token}`, ...(await forwardedHeaders()) },
     cache: "no-store",
-  });
-  if (!meRes.ok) return null;
+    signal: AbortSignal.timeout(15_000),
+  }).catch(() => null);
+  if (!meRes?.ok) return null;
   const meBody = await meRes.json();
   const user = meBody.data as BackendUser;
 

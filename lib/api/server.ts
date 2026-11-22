@@ -4,6 +4,14 @@ import { forwardedHeaders } from "@/lib/api/forwarded";
 import type { ApiResult } from "@/lib/api/types";
 
 /**
+ * Tiempo máximo de espera al backend (OWASP A10): si se cuelga, la acción responde con un error
+ * claro en vez de dejar la pantalla cargando para siempre. Subir archivos tiene más margen.
+ */
+const TIMEOUT_MS = 30_000;
+const UPLOAD_TIMEOUT_MS = 120_000;
+
+
+/**
  * Llamada al backend desde una Server Action: reenvía la cookie de sesión, el navegador
  * y la IP del usuario (el backend los usa para la sesión y la auditoría). Solo importar desde
  * archivos "use server": el token nunca llega al navegador.
@@ -26,8 +34,10 @@ export async function backend<T>(
     },
     body: init.form ?? (init.body !== undefined ? JSON.stringify(init.body) : undefined),
     cache: "no-store",
-  }).catch(() => null);
+    signal: AbortSignal.timeout(init.form ? UPLOAD_TIMEOUT_MS : TIMEOUT_MS),
+  }).catch((err: unknown) => (err instanceof DOMException && err.name === "TimeoutError" ? "timeout" : null));
 
+  if (res === "timeout") return { ok: false, status: 504, error: "El servidor tardó demasiado en responder, inténtalo de nuevo" };
   if (!res) return { ok: false, status: 503, error: "No se pudo conectar con el servidor" };
 
   const payload = await res.json().catch(() => null);

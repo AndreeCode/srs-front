@@ -41,6 +41,7 @@ export async function loginAction(username: string, password: string): Promise<L
     },
     body: JSON.stringify({ username, password }),
     cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
   }).catch(() => null);
   if (!loginRes) return { ok: false, error: "No se pudo conectar con el servidor" };
   const loginBody = await loginRes.json().catch(() => null);
@@ -81,6 +82,7 @@ export async function registerAction(input: RegisterInput): Promise<RegisterResu
     headers: { "Content-Type": "application/json", ...(await forwardedHeaders()) },
     body: JSON.stringify(input),
     cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
   }).catch(() => null);
   if (!res) return { ok: false, error: "No se pudo conectar con el servidor" };
   const body = await res.json().catch(() => null);
@@ -102,6 +104,7 @@ export async function logoutAction() {
     method: "POST",
     headers: token ? { Cookie: `access_token=${token}`, ...client } : client,
     cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
   }).catch(() => null);
 
   cookieStore.delete("access_token");
