@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { forwardedHeaders } from "@/lib/api/forwarded";
+import { backend } from "@/lib/api/server";
 import {
   BACKEND_URL,
   parseSetCookie,
@@ -105,4 +106,12 @@ export async function logoutAction() {
 
   cookieStore.delete("access_token");
   cookieStore.delete("session_role");
+}
+
+/** Cambia la contraseña propia: el backend pide la actual y cierra las demás sesiones. */
+export async function changePasswordAction(currentPassword: string, newPassword: string) {
+  return backend<null>("/auth/password", {
+    method: "PUT",
+    body: { current_password: currentPassword, new_password: newPassword },
+  });
 }

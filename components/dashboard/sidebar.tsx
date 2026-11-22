@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, HeartPulse, LogOut, ShieldCheck, X } from "lucide-react";
+import { ChevronDown, HeartPulse, KeyRound, LogOut, ShieldCheck, X } from "lucide-react";
 import type { Session } from "@/lib/backend";
 import type { View } from "@/hooks/use-view-history";
 import { isGroup, navFor, sessionRoleLabels, type NavItem } from "@/lib/dashboard/cred";
+import { ChangePasswordModal } from "@/components/dashboard/change-password-modal";
 
 export function Sidebar({
   session,
@@ -24,6 +25,7 @@ export function Sidebar({
   badges?: Partial<Record<View["name"], number>>;
 }) {
   const entries = navFor(session.role);
+  const [changingPassword, setChangingPassword] = useState(false);
   // Grupos desplegables: se abren con la pantalla actual y quedan abiertos hasta que el usuario los pliegue.
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
@@ -63,6 +65,7 @@ export function Sidebar({
   }
 
   return (
+    <>
     <aside
       className={`fixed inset-y-0 left-0 z-40 flex w-4/5 max-w-xs flex-col border-r border-sidebar-border bg-sidebar transition-transform lg:w-64 lg:max-w-none lg:translate-x-0 ${mobile ? "translate-x-0" : "-translate-x-full"}`}
     >
@@ -114,13 +117,22 @@ export function Sidebar({
           </div>
         </div>
         <button
+          onClick={() => setChangingPassword(true)}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition hover:bg-sidebar-accent"
+        >
+          <KeyRound className="size-4" />
+          Cambiar contraseña
+        </button>
+        <button
           onClick={onLogout}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive transition hover:bg-destructive/10"
+          className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive transition hover:bg-destructive/10"
         >
           <LogOut className="size-4" />
           Cerrar sesión
         </button>
       </div>
     </aside>
+    {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
+    </>
   );
 }
