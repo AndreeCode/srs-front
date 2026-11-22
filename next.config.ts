@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
   // Docker: .next/standalone con server.js y solo los node_modules necesarios.
   output: "standalone",
   poweredByHeader: false,
+  // Solo en desarrollo: permite abrir el sitio como http://127.0.0.1 ademas de localhost.
+  allowedDevOrigins: ["127.0.0.1"],
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
