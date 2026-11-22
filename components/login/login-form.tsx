@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { HeartPulse, LogIn } from "lucide-react";
-import { loginAction } from "@/lib/actions/auth";
+import { loginAction, mfaLoginAction } from "@/lib/actions/auth";
 import { Field, PasswordField } from "@/components/ui/field";
+import { TextField } from "@/components/dashboard/forms";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { buttonClass } from "@/lib/dashboard/cred";
 
@@ -12,17 +13,23 @@ export function LoginForm() {
   const router = useRouter();
   const [notice, setNotice] = useState("");
   const [pending, setPending] = useState(false);
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
 
   async function doLogin(form: FormData) {
     setPending(true);
     setNotice("");
-    const result = await loginAction(String(form.get("username")), String(form.get("password"))).catch(() => null);
+    const result = await (mfaToken
+      ? mfaLoginAction(mfaToken, String(form.get("code") ?? ""))
+      : loginAction(String(form.get("username")), String(form.get("password")))
+    ).catch(() => null);
     if (result?.ok) {
       router.push("/dashboard");
       router.refresh();
       return;
     }
-    setNotice(result?.error ?? "No se pudo iniciar sesión, intenta de nuevo");
+    if (result?.mfaToken) setMfaToken(result.mfaToken);
+    else setNotice(result?.error ?? "No se pudo iniciar sesión, intenta de nuevo");
+    if (result?.error?.includes("vencio")) setMfaToken(null);
     setPending(false);
   }
 
@@ -42,18 +49,29 @@ export function LoginForm() {
       </div>
       <div className="mx-auto w-full max-w-md">
         <p className="text-sm font-semibold text-primary">Portal de seguimiento</p>
-        <h2 className="mt-2 text-3xl font-bold tracking-tight">Iniciar sesión</h2>
+        <h2 className="mt-2 text-3xl font-bold tracking-tight">{mfaToken ? "Verificación en dos pasos" : "Iniciar sesión"}</h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           Ingresa con tu usuario para consultar la información correspondiente
           a tu perfil.
         </p>
-        <form action={doLogin} className="mt-7 grid gap-4">
-          <Field label="Usuario" name="username" placeholder="Escribe tu usuario" autoComplete="username" />
-          <PasswordField
-            label="Contraseña"
-            name="password"
-            placeholder="Escribe tu contraseña"
-          />
+        <form action={doLogin} className="mt-7 grid gap-4" key={mfaToken ? "mfa" : "password"}>
+          {mfaToken ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Escribe el código de 6 dígitos de tu app autenticadora, o uno de tus códigos de respaldo.
+              </p>
+              <TextField label="Código de verificación" name="code" placeholder="123456" autoComplete="one-time-code" inputMode="numeric" autoFocus required minLength={6} maxLength={20} />
+            </>
+          ) : (
+            <>
+              <Field label="Usuario" name="username" placeholder="Escribe tu usuario" autoComplete="username" />
+              <PasswordField
+                label="Contraseña"
+                name="password"
+                placeholder="Escribe tu contraseña"
+              />
+            </>
+          )}
           <button className={`${buttonClass} mt-2 h-11`} disabled={pending}>
             <LogIn className="size-4" />
             {pending ? "Ingresando..." : "Ingresar al portal"}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2, X } from "lucide-react";
 import type { Session } from "@/lib/backend";
 import { logoutAction } from "@/lib/actions/auth";
@@ -9,6 +8,8 @@ import { SisnatProvider, useSisnat } from "@/hooks/use-sisnat";
 import { useViewHistory, type View } from "@/hooks/use-view-history";
 import { sectionOf } from "@/lib/dashboard/cred";
 import { Sidebar } from "@/components/dashboard/sidebar";
+import { ChangePasswordModal } from "@/components/dashboard/change-password-modal";
+import { MfaModal } from "@/components/dashboard/account-security";
 import { Header } from "@/components/dashboard/header";
 import { PackagesView } from "@/components/dashboard/views/packages-view";
 import { PackageChoiceView } from "@/components/dashboard/views/package-choice-view";
@@ -47,7 +48,6 @@ export function DashboardClient({ session }: { session: Session }) {
 }
 
 function DashboardShell() {
-  const router = useRouter();
   const { session, toast, dismissToast } = useSisnat();
   const nav = useViewHistory(
     session.role === "guardian" ? { name: "myChildren" } : session.role === "admin" ? { name: "dashboard" } : { name: "search" },
@@ -60,8 +60,14 @@ function DashboardShell() {
 
   async function handleLogout() {
     await logoutAction();
-    router.push("/login");
-    router.refresh();
+    window.location.replace("/signed-out");
+  }
+
+  if (session.mustChangePassword) {
+    return <ChangePasswordModal forced onClose={() => window.location.reload()} />;
+  }
+  if (session.mfaSetupRequired) {
+    return <MfaModal forced onClose={() => window.location.reload()} />;
   }
 
   return (

@@ -9,7 +9,7 @@ import { TextField } from "@/components/dashboard/forms";
 import { Modal } from "@/components/ui/modal";
 
 /** Cambio de contraseña propio. La política (longitud, comunes, DNI) la valida el backend. */
-export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
+export function ChangePasswordModal({ onClose, forced = false }: { onClose: () => void; forced?: boolean }) {
   const run = useBackendAction();
   const [pending, setPending] = useState(false);
   const [mismatch, setMismatch] = useState(false);
@@ -31,7 +31,11 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="Cambiar contraseña" subtitle="Se cerrarán tus sesiones en otros dispositivos." onClose={onClose}>
+    <Modal
+      title={forced ? "Crea tu contraseña" : "Cambiar contraseña"}
+      subtitle={forced ? "Tu cuenta tiene una contraseña temporal: cámbiala para continuar." : "Se cerrarán tus sesiones en otros dispositivos."}
+      onClose={forced ? () => undefined : onClose}
+    >
       <form onSubmit={onSubmit} className="grid gap-4">
         <TextField label="Contraseña actual" name="current_password" type="password" required autoComplete="current-password" />
         <TextField
@@ -42,14 +46,16 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
           minLength={8}
           maxLength={128}
           autoComplete="new-password"
-          hint="Mínimo 8 caracteres con letras y números. No uses tu DNI ni contraseñas comunes."
+          hint="Mínimo 8 caracteres. Mejor una frase larga (puede tener espacios). No uses tu DNI ni contraseñas comunes."
         />
         <TextField label="Repite la nueva contraseña" name="confirm_password" type="password" required autoComplete="new-password" />
         {mismatch && <p className="text-sm text-destructive">Las contraseñas nuevas no coinciden.</p>}
         <div className="flex justify-end gap-2">
-          <button type="button" className={secondaryButtonClass} onClick={onClose}>
-            Cancelar
-          </button>
+          {!forced && (
+            <button type="button" className={secondaryButtonClass} onClick={onClose}>
+              Cancelar
+            </button>
+          )}
           <button className={buttonClass} disabled={pending}>
             <KeyRound className="size-4" />
             {pending ? "Guardando..." : "Cambiar contraseña"}

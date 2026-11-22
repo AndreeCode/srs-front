@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { forwardedHeaders } from "@/lib/api/forwarded";
 import { BACKEND_URL } from "@/lib/backend";
+import { ROLE_COOKIE, SESSION_COOKIE } from "@/lib/cookie-names";
 
 /**
  * Descarga una evidencia de reclamo: el navegador no tiene el token del backend,
@@ -9,11 +10,11 @@ import { BACKEND_URL } from "@/lib/backend";
 export async function GET(_request: Request, ctx: RouteContext<"/files/claim-evidences/[id]">) {
   const { id } = await ctx.params;
   const cookieStore = await cookies();
-  const token = cookieStore.get("access_token")?.value;
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return new Response("Tu sesión terminó, vuelve a ingresar", { status: 401 });
 
   // El padre descarga por el portal (solo evidencias de sus propios reclamos).
-  const base = cookieStore.get("session_role")?.value === "guardian" ? "portal/claim-evidences" : "claim-evidences";
+  const base = cookieStore.get(ROLE_COOKIE)?.value === "guardian" ? "portal/claim-evidences" : "claim-evidences";
   const res = await fetch(`${BACKEND_URL}/api/${base}/${encodeURIComponent(id)}/file`, {
     headers: { Cookie: `access_token=${token}`, ...(await forwardedHeaders()) },
     cache: "no-store",

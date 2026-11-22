@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
+import { CLEAR_SITE_DATA, ROLE_COOKIE, SESSION_COOKIE } from "@/lib/cookie-names";
 
 /**
  * La sesión dejó de valer en el backend (cerrada, vencida o dispositivo bloqueado) pero la
@@ -8,7 +9,9 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
-  cookieStore.delete("access_token");
-  cookieStore.delete("session_role");
-  return NextResponse.redirect(new URL("/login", request.url));
+  cookieStore.delete(SESSION_COOKIE);
+  cookieStore.delete(ROLE_COOKIE);
+  const response = NextResponse.redirect(new URL("/login", request.url));
+  for (const [key, value] of Object.entries(CLEAR_SITE_DATA)) response.headers.set(key, value);
+  return response;
 }

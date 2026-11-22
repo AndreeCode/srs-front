@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { BACKEND_URL } from "@/lib/backend";
 import { forwardedHeaders } from "@/lib/api/forwarded";
 import type { ApiResult } from "@/lib/api/types";
+import { ROLE_COOKIE, SESSION_COOKIE } from "@/lib/cookie-names";
 
 /**
  * Tiempo máximo de espera al backend (OWASP A10): si se cuelga, la acción responde con un error
@@ -22,7 +23,7 @@ export async function backend<T>(
   init: { method?: "GET" | "POST" | "PUT" | "DELETE"; body?: unknown; form?: FormData } = {},
 ): Promise<ApiResult<T>> {
   const cookieStore = await cookies();
-  const token = cookieStore.get("access_token")?.value;
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return { ok: false, status: 401, error: "Tu sesión terminó, vuelve a ingresar" };
 
   const res = await fetch(`${BACKEND_URL}/api${path}`, {
@@ -43,8 +44,8 @@ export async function backend<T>(
   const payload = await res.json().catch(() => null);
   if (!res.ok) {
     if (res.status === 401) {
-      cookieStore.delete("access_token");
-      cookieStore.delete("session_role");
+      cookieStore.delete(SESSION_COOKIE);
+      cookieStore.delete(ROLE_COOKIE);
     }
     return { ok: false, status: res.status, error: payload?.msg ?? `Error ${res.status} del servidor` };
   }

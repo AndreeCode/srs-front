@@ -6,6 +6,7 @@ import type { Session } from "@/lib/backend";
 import type { View } from "@/hooks/use-view-history";
 import { isGroup, navFor, sessionRoleLabels, type NavItem } from "@/lib/dashboard/cred";
 import { ChangePasswordModal } from "@/components/dashboard/change-password-modal";
+import { MfaModal, SessionsModal } from "@/components/dashboard/account-security";
 
 export function Sidebar({
   session,
@@ -26,6 +27,7 @@ export function Sidebar({
 }) {
   const entries = navFor(session.role);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [account, setAccount] = useState<"mfa" | "sessions" | null>(null);
   // Grupos desplegables: se abren con la pantalla actual y quedan abiertos hasta que el usuario los pliegue.
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
@@ -124,6 +126,20 @@ export function Sidebar({
           Cambiar contraseña
         </button>
         <button
+          onClick={() => setAccount("mfa")}
+          className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition hover:bg-sidebar-accent"
+        >
+          <ShieldCheck className="size-4" />
+          Verificación en dos pasos
+        </button>
+        <button
+          onClick={() => setAccount("sessions")}
+          className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition hover:bg-sidebar-accent"
+        >
+          <LogOut className="size-4" />
+          Mis sesiones
+        </button>
+        <button
           onClick={onLogout}
           className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive transition hover:bg-destructive/10"
         >
@@ -133,6 +149,8 @@ export function Sidebar({
       </div>
     </aside>
     {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
+    {account === "mfa" && <MfaModal onClose={() => setAccount(null)} />}
+    {account === "sessions" && <SessionsModal onClose={() => setAccount(null)} />}
     </>
   );
 }

@@ -14,10 +14,11 @@ import type {
   User,
   UserSession,
 } from "@/lib/api/types";
+import { SESSION_COOKIE } from "@/lib/cookie-names";
 
 /** Sesión y dispositivo de quien está usando el panel (vienen dentro de su propio token). */
 async function currentIds(): Promise<{ sessionId: string | null; deviceId: string | null }> {
-  const token = (await cookies()).get("access_token")?.value;
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
   try {
     const payload = JSON.parse(Buffer.from(token!.split(".")[1], "base64url").toString());
     return { sessionId: payload.sid ?? null, deviceId: payload.did ?? null };

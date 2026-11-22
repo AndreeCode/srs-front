@@ -21,7 +21,8 @@ export async function loadGuardianHis(guardianId: string) {
 
 /** Busca un niño en HIS-MINSA por su DNI o CNV (8 dígitos). */
 export async function lookupHisChild(documentNumber: string) {
-  return backend<HisLookup>(`/his/children/${id(documentNumber)}`);
+  // POST: el DNI del niño va en el cuerpo, no en la URL (no queda en logs de acceso). ASVS V14.
+  return backend<HisLookup>("/his/children/lookup", { method: "POST", body: { document_number: documentNumber } });
 }
 
 export async function linkHisChild(input: {

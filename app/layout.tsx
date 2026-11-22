@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -18,7 +19,9 @@ export const metadata: Metadata = {
     "Gestión de Paquetes de Atención Integral CRED de la Red de Salud Huamanga.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // El nonce de la CSP exige renderizar cada petición (lib/csp.ts).
+  await connection();
   return (
     <html
       lang="en"

@@ -10,6 +10,7 @@ import {
   type SessionRole,
 } from "@/lib/backend";
 import type { LinkedChild, RegisterInput } from "@/lib/api/types";
+import { DEVICE_COOKIE, ROLE_COOKIE, SESSION_COOKIE } from "@/lib/cookie-names";
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -22,24 +23,29 @@ const COOKIE_OPTIONS = {
 /** El backend identifica el navegador con esta cookie; dura lo mismo que allá (~400 días). */
 const DEVICE_COOKIE_OPTIONS = { ...COOKIE_OPTIONS, maxAge: 400 * 24 * 60 * 60 };
 
-type LoginResult = { ok: true; user: BackendUser; role: SessionRole } | { ok: false; error: string };
+type LoginResult =
+  | { ok: true; user: BackendUser; role: SessionRole }
+  | { ok: false; error: string; mfaToken?: undefined }
+  | { ok: false; mfaToken: string; error?: undefined };
 
 /**
+ * Llama a /auth/login o /auth/login/mfa y guarda las cookies que devuelve el backend. Con
+ * verificación en dos pasos, el primer paso no crea sesión: devuelve `mfaToken` (válido 5 min).
  * Devuelve el error en lugar de lanzarlo: en producción Next oculta el mensaje de los
  * errores lanzados en Server Actions y el usuario vería un error genérico de React.
  */
-export async function loginAction(username: string, password: string): Promise<LoginResult> {
+async function authenticate(path: string, payload: unknown): Promise<LoginResult> {
   const cookieStore = await cookies();
-  const deviceToken = cookieStore.get("device_token")?.value;
+  const deviceToken = cookieStore.get(DEVICE_COOKIE)?.value;
 
-  const loginRes = await fetch(`${BACKEND_URL}/api/auth/login`, {
+  const loginRes = await fetch(`${BACKEND_URL}/api${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(await forwardedHeaders()),
       ...(deviceToken ? { Cookie: `device_token=${deviceToken}` } : {}),
     },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify(payload),
     cache: "no-store",
     signal: AbortSignal.timeout(15_000),
   }).catch(() => null);
@@ -48,6 +54,7 @@ export async function loginAction(username: string, password: string): Promise<L
   if (!loginRes.ok) {
     return { ok: false, error: loginBody?.msg ?? "Credenciales inválidas" };
   }
+  if (loginBody?.data?.mfa_required) return { ok: false, mfaToken: String(loginBody.data.mfa_token) };
 
   const setCookies = loginRes.headers.getSetCookie();
   const token = parseSetCookie(setCookies, "access_token");
@@ -61,11 +68,20 @@ export async function loginAction(username: string, password: string): Promise<L
   const role = user.role;
   if (!role) return { ok: false, error: "Tu cuenta no tiene un rol válido" };
 
-  cookieStore.set("access_token", token, COOKIE_OPTIONS);
-  cookieStore.set("session_role", role, COOKIE_OPTIONS);
-  if (newDeviceToken) cookieStore.set("device_token", newDeviceToken, DEVICE_COOKIE_OPTIONS);
+  cookieStore.set(SESSION_COOKIE, token, COOKIE_OPTIONS);
+  cookieStore.set(ROLE_COOKIE, role, COOKIE_OPTIONS);
+  if (newDeviceToken) cookieStore.set(DEVICE_COOKIE, newDeviceToken, DEVICE_COOKIE_OPTIONS);
 
   return { ok: true, user, role };
+}
+
+export async function loginAction(username: string, password: string): Promise<LoginResult> {
+  return authenticate("/auth/login", { username, password });
+}
+
+/** Segundo paso: código de la app autenticadora o un código de respaldo. */
+export async function mfaLoginAction(mfaToken: string, code: string): Promise<LoginResult> {
+  return authenticate("/auth/login/mfa", { mfa_token: mfaToken, code });
 }
 
 type RegisterResult =
@@ -92,12 +108,12 @@ export async function registerAction(input: RegisterInput): Promise<RegisterResu
   const login = await loginAction(input.dni, input.password);
   return login.ok
     ? { ok: true, child, role: login.role, loginError: null }
-    : { ok: true, child, role: null, loginError: login.error };
+    : { ok: true, child, role: null, loginError: login.error ?? "Inicia sesión para continuar" };
 }
 
 export async function logoutAction() {
   const cookieStore = await cookies();
-  const token = cookieStore.get("access_token")?.value;
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
   const client = await forwardedHeaders();
 
   await fetch(`${BACKEND_URL}/api/auth/logout`, {
@@ -107,8 +123,8 @@ export async function logoutAction() {
     signal: AbortSignal.timeout(15_000),
   }).catch(() => null);
 
-  cookieStore.delete("access_token");
-  cookieStore.delete("session_role");
+  cookieStore.delete(SESSION_COOKIE);
+  cookieStore.delete(ROLE_COOKIE);
 }
 
 /** Cambia la contraseña propia: el backend pide la actual y cierra las demás sesiones. */

@@ -21,6 +21,10 @@ export type Session = {
   name: string;
   role: SessionRole;
   establishment: string;
+  /** Contraseña asignada por el personal: hay que cambiarla antes de usar el sistema. */
+  mustChangePassword?: boolean;
+  /** El rol exige verificación en dos pasos y aún no está activa. */
+  mfaSetupRequired?: boolean;
 };
 
 /** Busca una cookie entre los `Set-Cookie` de la respuesta del backend (usar `headers.getSetCookie()`). */

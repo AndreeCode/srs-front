@@ -9,6 +9,7 @@ import type { Region, Role, User, UserInput } from "@/lib/api/types";
 import { buttonClass, inputClass, sessionRoleLabels } from "@/lib/dashboard/cred";
 import { EmptyRow, FilterBar, PageTitle, PersonCell, StatusBadge, Table, Td, Tr } from "@/components/dashboard/shared";
 import { RowActions } from "@/components/dashboard/row-actions";
+import { resetUserMfaAction } from "@/lib/actions/account";
 import { TextField, labelClass, submitWith } from "@/components/dashboard/forms";
 import { LoadState, Pagination, SearchField, SelectField, matches, optional, required, usePage } from "@/components/dashboard/admin/common";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -106,7 +107,19 @@ export function UsersView() {
                       label={u.full_name}
                       onEdit={() => setForm({ user: u })}
                       onDelete={u.id !== session.id ? () => setRemove(u) : undefined}
-                    />
+                    >
+                      {u.id !== session.id && (
+                        <button
+                          className="text-xs text-muted-foreground underline"
+                          title="Si perdió el celular: deberá configurar la verificación de nuevo"
+                          onClick={async () => {
+                            if (window.confirm(`¿Restablecer la verificación en dos pasos de ${u.full_name}?`)) await run(resetUserMfaAction(u.id));
+                          }}
+                        >
+                          Restablecer 2FA
+                        </button>
+                      )}
+                    </RowActions>
                   </Td>
                 </Tr>
               );

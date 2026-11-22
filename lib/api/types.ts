@@ -471,7 +471,7 @@ export type HisAttention = {
   facility_name: string | null;
 };
 
-/** GET /his/children/{dni}: el niño, sus atenciones traducidas a prestaciones y con quién está vinculado. */
+/** POST /his/children/lookup {document_number}: el niño, sus atenciones traducidas a prestaciones y con quién está vinculado. */
 export type HisLookup = {
   child: PortalChild;
   controls: PortalControl[];
