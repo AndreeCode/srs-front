@@ -8,6 +8,7 @@ import type {
   ChildInput,
   Guardian,
   GuardianInput,
+  PendingLink,
   HealthFacility,
   Region,
   Role,
@@ -94,4 +95,20 @@ export async function updateLink(guardianId: string, childId: string, relationsh
 
 export async function unlinkChild(guardianId: string, childId: string) {
   return backend<null>(`/child-guardians/${id(childId)}/${id(guardianId)}`, { method: "DELETE" });
+}
+
+/* ───────────── Vínculos pedidos por los padres (A06: se verifican en persona) ───────────── */
+
+export async function loadPendingLinks() {
+  return backend<PendingLink[]>("/guardians/pending-links");
+}
+
+type PendingKey = Pick<PendingLink, "source" | "guardian_id" | "child_key">;
+
+export async function approvePendingLink({ source, guardian_id, child_key }: PendingKey) {
+  return backend<null>("/guardians/pending-links/approve", { method: "POST", body: { source, guardian_id, child_key } });
+}
+
+export async function rejectPendingLink({ source, guardian_id, child_key }: PendingKey) {
+  return backend<null>("/guardians/pending-links/reject", { method: "POST", body: { source, guardian_id, child_key } });
 }

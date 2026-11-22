@@ -63,6 +63,18 @@ export function PortalChildrenView({ nav }: { nav: Nav }) {
             {data.his_error}. Los hijos registrados en HIS-MINSA no se muestran por ahora.
           </p>
         )}
+        {data && data.pending_links.length > 0 && (
+          <div role="status" className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+            <p className="font-semibold">
+              {data.pending_links.length === 1 ? "1 hijo pendiente de verificación" : `${data.pending_links.length} hijos pendientes de verificación`}
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              Tu establecimiento de salud debe confirmar que eres el padre o apoderado de{" "}
+              {data.pending_links.map((p) => `${p.identifier} (${p.relationship})`).join(", ")}. Cuando lo haga,
+              verás aquí sus controles y vacunas.
+            </p>
+          </div>
+        )}
         {data && <HisNote kids={data.children.filter((c) => c.source === "his")} />}
         {data && (
           <GuardianChildren

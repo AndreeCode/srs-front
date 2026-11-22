@@ -1,10 +1,21 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, KeyRound, Link2, Pencil, Plus, Save, Search, Unlink, UserPlus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, KeyRound, Link2, Pencil, Plus, Save, Search, ShieldAlert, Unlink, UserPlus, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useBackendAction, useBackendQuery } from "@/hooks/use-backend";
-import { deleteGuardian, linkChild, loadPeople, saveGuardian, unlinkChild, updateLink } from "@/lib/actions/admin/people";
-import { RELATIONSHIPS, childName, type Child, type Guardian, type User } from "@/lib/api/types";
+import {
+  approvePendingLink,
+  deleteGuardian,
+  linkChild,
+  loadPendingLinks,
+  loadPeople,
+  rejectPendingLink,
+  saveGuardian,
+  unlinkChild,
+  updateLink,
+} from "@/lib/actions/admin/people";
+import { RELATIONSHIPS, childName, type Child, type Guardian, type PendingLink, type User } from "@/lib/api/types";
+import { formatDate } from "@/lib/sisnat/dates";
 import { buttonClass, inputClass, secondaryButtonClass } from "@/lib/dashboard/cred";
 import { ageDays, formatAge } from "@/lib/sisnat/dates";
 import { EmptyRow, FilterBar, PageTitle, PersonCell, StatusBadge, Table, Td, Tr } from "@/components/dashboard/shared";
@@ -31,6 +42,71 @@ function freeGuardianAccounts(people: People, current?: Guardian): User[] {
   return people.users.filter((u) => u.role_id === guardianRole && !taken.has(u.id));
 }
 
+/* ───────────── Vínculos pedidos por los padres ───────────── */
+
+/**
+ * Un padre que se registra solo (o vincula a un hijo desde el portal) no ve nada del niño hasta
+ * que el personal confirme en persona que es su padre o apoderado: sin esto, cualquiera que
+ * conozca el DNI y la fecha de nacimiento de un niño vería su historial (OWASP A06).
+ */
+function PendingLinksPanel({ onChanged }: { onChanged: () => void }) {
+  const { data, reload } = useBackendQuery("pending-links", loadPendingLinks);
+  const run = useBackendAction();
+  const [busy, setBusy] = useState<string | null>(null);
+  if (!data?.length) return null;
+
+  async function decide(link: PendingLink, approve: boolean) {
+    if (!approve && !window.confirm(`¿Rechazar la solicitud de ${link.guardian_name}? Se borrará el vínculo pendiente.`)) return;
+    setBusy(`${link.guardian_id}|${link.child_key}`);
+    const ok = await run(approve ? approvePendingLink(link) : rejectPendingLink(link));
+    setBusy(null);
+    if (ok) {
+      reload();
+      onChanged();
+    }
+  }
+
+  return (
+    <section className="mb-5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+      <h2 className="flex items-center gap-2 font-semibold">
+        <ShieldAlert className="size-4 text-amber-600" />
+        Vínculos por verificar ({data.length})
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Confirma con el DNI del padre o apoderado (en persona o por llamada) antes de aprobar: al aprobar, verá los
+        controles y vacunas del niño.
+      </p>
+      <div className="mt-3 grid gap-2">
+        {data.map((link) => {
+          const key = `${link.guardian_id}|${link.child_key}`;
+          return (
+            <div key={key} className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-3 text-sm">
+              <div className="min-w-56 flex-1">
+                <p className="font-semibold">
+                  {link.guardian_name} <span className="font-normal text-muted-foreground">· DNI {link.guardian_dni}</span>
+                </p>
+                <p className="text-muted-foreground">
+                  {link.relationship} de {link.child_name || "niño de HIS-MINSA"} · doc. {link.child_document ?? "—"}
+                  {link.child_birth_date && ` · nació el ${formatDate(link.child_birth_date)}`}
+                  {link.requested_at && ` · pedido el ${formatDate(link.requested_at)}`}
+                </p>
+              </div>
+              <button className={buttonClass} disabled={busy === key} onClick={() => decide(link, true)}>
+                <Check className="size-4" />
+                Aprobar
+              </button>
+              <button className={secondaryButtonClass} disabled={busy === key} onClick={() => decide(link, false)}>
+                <X className="size-4" />
+                Rechazar
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 /* ───────────── Lista de padres ───────────── */
 
 export function GuardiansView({ nav }: { nav: Nav }) {
@@ -50,7 +126,7 @@ export function GuardiansView({ nav }: { nav: Nav }) {
         guardian: g,
         account: g.user_id ? users.get(g.user_id) : undefined,
         kids: data.links
-          .filter((l) => l.guardian_id === g.id)
+          .filter((l) => l.guardian_id === g.id && l.verified !== false)
           .map((l) => children.get(l.child_id))
           .filter((c): c is Child => !!c),
       }))
@@ -75,6 +151,7 @@ export function GuardiansView({ nav }: { nav: Nav }) {
           </button>
         }
       />
+      <PendingLinksPanel onChanged={reload} />
       <LoadState loading={loading && !data} error={error} onRetry={reload}>
         <FilterBar>
           <SearchField value={q} onChange={setQ} placeholder="Nombre, DNI, celular o nombre del hijo" />

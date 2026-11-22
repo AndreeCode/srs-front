@@ -83,6 +83,26 @@ export type ChildGuardian = {
   child_id: string;
   guardian_id: string;
   relationship: string;
+  /** `false` = el padre lo pidió desde el registro/portal y el personal aún no lo verifica. */
+  verified: boolean;
+  requested_at: string | null;
+  verified_by: string | null;
+  verified_at: string | null;
+};
+
+/** Solicitud de vínculo hecha por un padre, pendiente de verificación (vista del personal). */
+export type PendingLink = {
+  source: ChildSource;
+  guardian_id: string;
+  guardian_name: string;
+  guardian_dni: string;
+  /** child_id (sicna) o DNI del niño (his): es la llave para aprobar o rechazar. */
+  child_key: string;
+  child_name: string | null;
+  child_document: string | null;
+  child_birth_date: string | null;
+  relationship: string;
+  requested_at: string | null;
 };
 
 export type UserInput = {
@@ -360,6 +380,15 @@ export type PortalOverview = {
   facilities: HealthFacility[];
   /** Mensaje si SQL Server (HIS-MINSA) no respondió; los hijos de Postgres se muestran igual. */
   his_error: string | null;
+  /** Hijos que el padre pidió vincular y el establecimiento aún no verifica (sin datos del niño). */
+  pending_links: PortalPendingLink[];
+};
+
+export type PortalPendingLink = {
+  source: ChildSource;
+  identifier: string;
+  relationship: string;
+  requested_at: string | null;
 };
 
 /* ───────────── HIS-MINSA (SQL Server, solo lectura) ───────────── */
@@ -373,6 +402,9 @@ export type GuardianHisChild = {
   child_name: string | null;
   linked_by: string | null;
   created_at: string | null;
+  verified: boolean;
+  verified_by: string | null;
+  verified_at: string | null;
 };
 
 /** Una fila de NOMINAL_TRAMA_NUEVO tal cual, para mostrar el detalle crudo. */
@@ -405,14 +437,15 @@ export type GuardianHisFollowup = { children: PortalChild[]; controls: PortalCon
 export type GuardianRelationship = "Madre" | "Padre" | "Apoderado";
 
 /** Niño encontrado al registrarse o al vincularlo desde el portal. */
+/**
+ * Respuesta al vincular un hijo desde el registro o el portal: queda pendiente y NO trae datos
+ * del niño (nombre, fecha) hasta que el establecimiento verifique al padre (OWASP A06).
+ */
 export type LinkedChild = {
-  source: ChildSource;
-  id: string;
-  padron_code: string;
-  full_name: string;
-  birth_date: string;
+  status: "pending";
+  identifier: string;
   relationship: GuardianRelationship;
-  already_linked?: boolean;
+  message: string;
 };
 
 export type RegisterInput = {

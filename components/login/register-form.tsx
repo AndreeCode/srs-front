@@ -3,14 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Baby, CheckCircle2, Database, HeartPulse, LogIn, UserPlus } from "lucide-react";
+import { Baby, CheckCircle2, HeartPulse, LogIn, UserPlus } from "lucide-react";
 import { registerAction } from "@/lib/actions/auth";
 import type { GuardianRelationship, LinkedChild } from "@/lib/api/types";
 import { PasswordField } from "@/components/ui/field";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { TextField, labelClass } from "@/components/dashboard/forms";
 import { buttonClass, inputClass, secondaryButtonClass } from "@/lib/dashboard/cred";
-import { formatDate, todayISO } from "@/lib/sisnat/dates";
+import { todayISO } from "@/lib/sisnat/dates";
 
 const relationships: GuardianRelationship[] = ["Madre", "Padre", "Apoderado"];
 
@@ -178,24 +178,18 @@ function RegisterDone({ done, onEnter }: { done: Done; onEnter: () => void }) {
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Cuenta creada</h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Tu usuario es tu DNI. Ya puedes ver los controles y vacunas de tus hijos.
+          Tu usuario es tu DNI. Podrás ver los controles y vacunas de tu hijo cuando tu establecimiento de salud
+          confirme que eres su padre o apoderado.
         </p>
       </div>
 
       {child && (
-        <div className="grid gap-2 rounded-xl border border-border bg-card p-4 text-sm">
+        <div className="grid gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
           <span className="flex items-center gap-2 font-semibold">
             <Baby className="size-4 text-primary" />
-            {child.full_name}
+            Documento {child.identifier} · {child.relationship}
           </span>
-          <span className="text-muted-foreground">
-            Padrón {child.padron_code} · nació el {formatDate(child.birth_date)} · {child.relationship}
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Database className="size-3.5" />
-            {child.source === "his" ? "Encontrado en HIS-MINSA (SQL Server)" : "Registrado en SICNA"}
-            {child.already_linked && " · ya estaba vinculado a ti"}
-          </span>
+          <span className="text-muted-foreground">{child.message}</span>
         </div>
       )}
 
