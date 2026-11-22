@@ -1,0 +1,4 @@
+[install]
+# No instalar versiones publicadas hace menos de 3 dias: los paquetes maliciosos
+# (cuentas robadas, typosquatting) suelen detectarse y retirarse antes de eso.
+minimumReleaseAge = 259200
